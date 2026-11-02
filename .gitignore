@@ -1,0 +1,32 @@
+**/data/
+**/logs/
+**/fixtures/delta_test/
+*.db
+*.log
+
+.env
+.env.*
+!.env.example
+
+# Python и Jupyter Notebooks
+__pycache__/
+*.py[cod]
+*$py.class
+.ipynb_checkpoints/
+.virtualenv/
+.venv/
+env/
+venv/
+
+# Настройки IDE (VS Code, PyCharm)
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# Системные файлы
+.DS_Store
+Thumbs.db
