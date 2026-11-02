@@ -90,19 +90,26 @@ services:
     depends_on:
       spark-master:
         condition: service_healthy
-    # Используем spark-submit, который автоматически держит процесс на переднем плане
-    command: >
-      /opt/spark/bin/spark-submit
-      --master spark://spark-master:7077
-      --class org.apache.spark.sql.connect.service.SparkConnectServer
-      --conf spark.driver.host=spark-connect
-      --conf spark.sql.extensions=io.delta.sql.DeltaSparkSessionExtension
-      --conf spark.sql.catalog.spark_catalog=org.apache.spark.sql.delta.catalog.DeltaCatalog
-      --conf spark.dynamicAllocation.enabled=false
-      --conf spark.executor.instances=2
-      --conf spark.executor.cores=2
-      --conf spark.cores.max=4
-      /opt/spark/jars/spark-token-provider-kafka-0-10_2.13-3.5.3.jar
+    # --wait keeps the Connect server in the foreground so the container stays alive
+    command:
+      - /opt/spark/sbin/start-connect-server.sh
+      - --wait
+      - --master
+      - spark://spark-master:7077
+      - --conf
+      - spark.driver.host=spark-connect
+      - --conf
+      - spark.sql.extensions=io.delta.sql.DeltaSparkSessionExtension
+      - --conf
+      - spark.sql.catalog.spark_catalog=org.apache.spark.sql.delta.catalog.DeltaCatalog
+      - --conf
+      - spark.dynamicAllocation.enabled=false
+      - --conf
+      - spark.executor.instances=2
+      - --conf
+      - spark.executor.cores=2
+      - --conf
+      - spark.cores.max=4
     ports:
       - "15002:15002"
       - "4040:4040"
