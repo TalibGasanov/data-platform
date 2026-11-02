@@ -52,6 +52,42 @@ services:
     networks:
       - platform-network
 
+  seaweedfs:
+    image: chrislusf/seaweedfs:4.52
+    container_name: seaweedfs
+    command: server -dir=/data -ip=seaweedfs -s3 -s3.port=8333 -master.volumeSizeLimitMB=1024
+    environment:
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY:-lakehouse}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY:-lakehouse-secret}
+    ports:
+      - "8333:8333"   # S3 API
+      - "9333:9333"   # Master UI
+      - "8888:8888"   # Filer UI (browse buckets at /buckets/)
+    volumes:
+      - seaweedfs-data:/data
+    networks:
+      - platform-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://seaweedfs:9333/cluster/status || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  seaweedfs-init:
+    image: chrislusf/seaweedfs:4.52
+    container_name: seaweedfs-init
+    depends_on:
+      seaweedfs:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    # Creating an existing bucket only prints an error, so the init step stays idempotent
+    command:
+      - echo "s3.bucket.create -name ${S3_BUCKET:-lakehouse}" | weed shell -master=seaweedfs:9333
+    networks:
+      - platform-network
+    restart: "no"
+
   spark-master:
     <<: *spark-image
     container_name: spark-master
@@ -104,6 +140,9 @@ services:
       - spark.executor.cores=2
       - --conf
       - spark.cores.max=4
+    environment:
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY:-lakehouse}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY:-lakehouse-secret}
     ports:
       - "15002:15002"
       - "4040:4040"
@@ -125,6 +164,8 @@ services:
       SPARK_WORKER_WEBUI_PORT: "8081"
       SPARK_WORKER_CORES: ${SPARK_WORKER_CORES:-4}
       SPARK_WORKER_MEMORY: ${SPARK_WORKER_MEMORY:-4g}
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY:-lakehouse}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY:-lakehouse-secret}
     volumes:
       - ${SPARK_DATA_DIR:-./data}:/opt/spark/data
       - ./scripts:/opt/infra/scripts:ro
@@ -138,3 +179,4 @@ networks:
 
 volumes:
   kafka-data:
+  seaweedfs-data:

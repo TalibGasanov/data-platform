@@ -20,8 +20,20 @@ check "kafka broker responds" \
   docker compose exec -T kafka /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:29092
 check "spark master UI (8080)" curl -fsS http://localhost:8080
 check "kafka UI (8085)" curl -fsS http://localhost:8085
+check "seaweedfs master (9333)" curl -fsS http://localhost:9333/cluster/status
 check "spark worker registered with master" \
   bash -c "curl -fsS http://localhost:8080/json/ | grep -q '\"state\" *: *\"ALIVE\"'"
+
+# Overwrites one fixed path, so repeated runs don't pile up data in the bucket
+check "spark connect delta write/read on s3a (seaweedfs)" \
+  docker compose exec -T -e BUCKET="${S3_BUCKET:-lakehouse}" spark-connect python3 -c '
+import os
+from pyspark.sql import SparkSession
+spark = SparkSession.builder.remote("sc://localhost:15002").getOrCreate()
+path = "s3a://" + os.environ["BUCKET"] + "/_smoke_test"
+spark.range(4).write.format("delta").mode("overwrite").save(path)
+assert spark.read.format("delta").load(path).count() == 4
+'
 
 # Run a real query through Spark Connect from inside the spark-connect container,
 # which already ships pyspark, so no local client install is needed.
