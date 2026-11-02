@@ -36,5 +36,8 @@ COPY requirements-spark.txt /opt/spark/requirements-spark.txt
 RUN pip3 install --no-cache-dir --upgrade pip \
  && pip3 install --no-cache-dir -r /opt/spark/requirements-spark.txt
 
+# Writable location for the embedded Derby metastore (mounted as a named volume)
+RUN mkdir -p /opt/spark/metastore && chown spark:spark /opt/spark/metastore
+
 
 USER spark

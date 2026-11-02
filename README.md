@@ -7,6 +7,7 @@ Modern Data Platform template featuring containerized Apache Spark, Apache Kafka
 - **Orchestration & Compute:** Apache Spark (Master + Worker)
 - **Remote Execution:** Spark Connect Server (Port `15002`)
 - **Storage Layer:** Delta Lake on local disk or S3 (SeaweedFS, `hadoop-aws` configured)
+- **Catalog:** Embedded Derby Hive metastore (table names persist across restarts)
 - **Streaming:** Apache Kafka (KRaft mode) + Kafka UI
 - **Database Connectivity:** MSSQL JDBC Driver included
 
@@ -14,16 +15,13 @@ Modern Data Platform template featuring containerized Apache Spark, Apache Kafka
 
 ```text
 data-platform/
-├── data/                  # Delta files and tables (gitignored), mounted at /opt/spark/data
-│   └── warehouse/         # Default location for tables saved by name (spark.sql.warehouse.dir)
+├── data/                  # Delta files on local disk (gitignored), mounted at /opt/spark/data
 ├── scripts/               # Helper scripts (smoke_test.sh)
 ├── compose.yml            # Kafka, Kafka UI, SeaweedFS (S3), Spark Master, Spark Connect, Spark Worker
 ├── Dockerfile             # Custom Spark image (Delta, S3, Kafka, MSSQL JDBC jars)
-├── spark-defaults.conf    # Spark defaults: Delta extensions, warehouse dir, S3 settings
+├── spark-defaults.conf    # Spark defaults: Delta extensions, Hive metastore, warehouse dir, S3 settings
 └── requirements-spark.txt # Python dependencies installed in the Spark image
 ```
-
-Use `/opt/spark/data/...` as the path inside the containers, for example `df.write.format("delta").save("/opt/spark/data/delta_test")`.
 
 ## 🛠️ Quick Start
 
@@ -54,6 +52,23 @@ df.write.format("delta").mode("overwrite").save("s3a://lakehouse/delta_test")
 spark.read.format("delta").load("s3a://lakehouse/delta_test").show()
 ```
 Credentials and the bucket name can be overridden with the `S3_ACCESS_KEY`, `S3_SECRET_KEY` and `S3_BUCKET` environment variables (defaults are for local development only). The S3 settings live in `spark-defaults.conf`.
+
+### Local Disk Storage (optional fallback)
+The host `./data` folder is also mounted at `/opt/spark/data` in `spark-connect` and `spark-worker`, so you can store Delta files on local disk without S3. Use the `/opt/spark/data/...` path inside the containers; the files appear in `./data` on the host:
+```python
+df.write.format("delta").mode("overwrite").save("/opt/spark/data/delta_test")
+spark.read.format("delta").load("/opt/spark/data/delta_test").show()
+```
+Tables saved by name (`saveAsTable`) go to S3 (`s3a://lakehouse/warehouse`), not to this folder. The host folder can be changed with the `SPARK_DATA_DIR` environment variable.
+
+### Tables and Metastore
+Tables saved by name are stored under `s3a://lakehouse/warehouse` and registered in an embedded Derby Hive metastore, so their names persist across restarts:
+```python
+df.write.format("delta").mode("overwrite").saveAsTable("test")
+spark.sql("SHOW TABLES").show()
+spark.sql("DESCRIBE EXTENDED test").show(truncate=False)
+```
+The metastore database lives in the `metastore-data` Docker volume. Derby allows only one connection, so run a single Spark driver (`spark-connect`) against it. Removing only the `metastore-data` volume drops the table names, but the table files stay in the bucket. Re-register one with `CREATE TABLE test USING delta LOCATION 's3a://lakehouse/warehouse/test'`. Note that `docker compose down -v` removes all volumes, including the bucket data.
 
 ### Smoke Test
 Verifies Kafka, Spark Master/worker, Kafka UI, and a Spark Connect query with a Delta write/read:
