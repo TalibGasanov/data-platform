@@ -39,7 +39,7 @@ services:
       start_period: 30s
 
   kafka-ui:
-    image: ghcr.io/kafbat/kafka-ui:latest
+    image: ghcr.io/kafbat/kafka-ui:v1.5.0
     container_name: kafka-ui
     ports:
       - "8085:8080"
@@ -68,12 +68,6 @@ services:
       - "8080:8080"
       #- "4040:4040"
     volumes:
-      - ${SPARK_DATA_DIR:-./data}:/opt/spark/volume01
-      - ../transforms:/opt/transforms:ro
-      - ../shared:/opt/shared:ro
-      - ../logs:/opt/logs
-      - ../data:/opt/data:ro
-      - ../fixtures:/opt/fixtures:ro
       - ./scripts:/opt/infra/scripts:ro
     networks:
       - platform-network
@@ -114,12 +108,7 @@ services:
       - "15002:15002"
       - "4040:4040"
     volumes:
-      - ${SPARK_DATA_DIR:-./data}:/opt/spark/volume01
-      - ../transforms:/opt/transforms:ro
-      - ../shared:/opt/shared:ro
-      - ../logs:/opt/logs
-      - ../data:/opt/data:ro
-      - ../fixtures:/opt/fixtures:ro
+      - ${SPARK_DATA_DIR:-./data}:/opt/spark/data
     networks:
       - platform-network
 
@@ -137,12 +126,7 @@ services:
       SPARK_WORKER_CORES: ${SPARK_WORKER_CORES:-4}
       SPARK_WORKER_MEMORY: ${SPARK_WORKER_MEMORY:-4g}
     volumes:
-      - ${SPARK_DATA_DIR:-./data}:/opt/spark/volume01
-      - ../transforms:/opt/transforms:ro
-      - ../shared:/opt/shared:ro
-      - ../logs:/opt/logs
-      - ../data:/opt/data:ro
-      - ../fixtures:/opt/fixtures:ro
+      - ${SPARK_DATA_DIR:-./data}:/opt/spark/data
       - ./scripts:/opt/infra/scripts:ro
     networks:
       - platform-network
@@ -154,4 +138,3 @@ networks:
 
 volumes:
   kafka-data:
-  sqlserver-data:

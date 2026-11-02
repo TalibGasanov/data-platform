@@ -14,16 +14,16 @@ Modern Data Platform template featuring containerized Apache Spark, Apache Kafka
 
 ```text
 data-platform/
-├── data/                  # Shared data directory
-├── fixtures/              # Test fixtures and mock data
-├── logs/                  # Services log output
-├── shared/                # Shared utilities and libraries
-├── transforms/            # PySpark transformation jobs
-├── compose.yml
-├── Dockerfile
-├── spark-defaults.conf
-└── requirements-spark.txt
+├── data/                  # Delta files and tables (gitignored), mounted at /opt/spark/data
+│   └── warehouse/         # Default location for tables saved by name (spark.sql.warehouse.dir)
+├── scripts/               # Helper scripts (smoke_test.sh)
+├── compose.yml            # Kafka, Kafka UI, Spark Master, Spark Connect, Spark Worker
+├── Dockerfile             # Custom Spark image (Delta, S3, Kafka, MSSQL JDBC jars)
+├── spark-defaults.conf    # Spark defaults: Delta extensions, warehouse dir
+└── requirements-spark.txt # Python dependencies installed in the Spark image
 ```
+
+Use `/opt/spark/data/...` as the path inside the containers, for example `df.write.format("delta").save("/opt/spark/data/delta_test")`.
 
 ## 🛠️ Quick Start
 
@@ -43,3 +43,9 @@ docker compose -f compose.yml up -d --scale spark-worker=2
 - **Spark Master UI:** [http://localhost:8080](http://localhost:8080)
 - **Kafka UI:** [http://localhost:8085](http://localhost:8085)
 - **Spark Connect Endpoint:** `sc://localhost:15002`
+
+### Smoke Test
+Verifies Kafka, Spark Master/worker, Kafka UI, and a Spark Connect query with a Delta write/read:
+```bash
+./scripts/smoke_test.sh
+```
