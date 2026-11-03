@@ -51,7 +51,17 @@ SeaweedFS provides a local S3-compatible store, and a `lakehouse` bucket is crea
 df.write.format("delta").mode("overwrite").save("s3a://lakehouse/delta_test")
 spark.read.format("delta").load("s3a://lakehouse/delta_test").show()
 ```
+To query a CSV file stored in the bucket (browse it at [http://localhost:8888/buckets/lakehouse/](http://localhost:8888/buckets/lakehouse/)), use its exact `s3a://` path:
+```python
+df = spark.read.option("header", "true").csv("s3a://lakehouse/external-locations/files/northwind/Customers.csv")
+df.show()
+```
 Credentials and the bucket name can be overridden with the `S3_ACCESS_KEY`, `S3_SECRET_KEY` and `S3_BUCKET` environment variables (defaults are for local development only). The S3 settings live in `spark-defaults.conf`.
+
+### Bucket Folder Structure
+The `lakehouse` bucket uses these top-level folders:
+- `schemas/` — managed storage. Spark creates the files here itself when you create databases and tables (e.g. `schemas/northwind_db.db/`). Don't upload files here manually.
+- `external-locations/` — for files you upload manually, such as CSV or JSON (e.g. `external-locations/files/northwind/Customers.csv`).
 
 ### Local Disk Storage (optional fallback)
 The host `./data` folder is also mounted at `/opt/spark/data` in `spark-connect` and `spark-worker`, so you can store Delta files on local disk without S3. Use the `/opt/spark/data/...` path inside the containers; the files appear in `./data` on the host:
@@ -59,16 +69,16 @@ The host `./data` folder is also mounted at `/opt/spark/data` in `spark-connect`
 df.write.format("delta").mode("overwrite").save("/opt/spark/data/delta_test")
 spark.read.format("delta").load("/opt/spark/data/delta_test").show()
 ```
-Tables saved by name (`saveAsTable`) go to S3 (`s3a://lakehouse/warehouse`), not to this folder. The host folder can be changed with the `SPARK_DATA_DIR` environment variable.
+Tables saved by name (`saveAsTable`) go to S3 (`s3a://lakehouse/schemas`), not to this folder. The host folder can be changed with the `SPARK_DATA_DIR` environment variable.
 
 ### Tables and Metastore
-Tables saved by name are stored under `s3a://lakehouse/warehouse` and registered in an embedded Derby Hive metastore, so their names persist across restarts:
+Tables saved by name are stored under `s3a://lakehouse/schemas` and registered in an embedded Derby Hive metastore, so their names persist across restarts:
 ```python
 df.write.format("delta").mode("overwrite").saveAsTable("test")
 spark.sql("SHOW TABLES").show()
 spark.sql("DESCRIBE EXTENDED test").show(truncate=False)
 ```
-The metastore database lives in the `metastore-data` Docker volume. Derby allows only one connection, so run a single Spark driver (`spark-connect`) against it. Removing only the `metastore-data` volume drops the table names, but the table files stay in the bucket. Re-register one with `CREATE TABLE test USING delta LOCATION 's3a://lakehouse/warehouse/test'`. Note that `docker compose down -v` removes all volumes, including the bucket data.
+The metastore database lives in the `metastore-data` Docker volume. Derby allows only one connection, so run a single Spark driver (`spark-connect`) against it. Removing only the `metastore-data` volume drops the table names, but the table files stay in the bucket. Re-register one with `CREATE TABLE test USING delta LOCATION 's3a://lakehouse/schemas/test'`. Note that `docker compose down -v` removes all volumes, including the bucket data.
 
 ### Smoke Test
 Verifies Kafka, Spark Master/worker, Kafka UI, and a Spark Connect query with a Delta write/read:
